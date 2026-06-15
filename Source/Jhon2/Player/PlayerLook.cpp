@@ -5,6 +5,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Character.h"       // ACharacter を使うために必要
 #include "GameFramework/PlayerController.h" // APlayerController を使うために必要
+#include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values for this component's properties
 UPlayerLook::UPlayerLook()
@@ -12,7 +13,6 @@ UPlayerLook::UPlayerLook()
 	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = true;
-
 
 }
 
@@ -22,6 +22,18 @@ void UPlayerLook::BeginPlay()
 {
 	Super::BeginPlay();
 
+	AActor* OwnerActor = GetOwner();
+	if (ACharacter* OwnerCharacter = Cast<ACharacter>(OwnerActor))
+	{
+		// コントローラーの回転と同期を切る
+		OwnerCharacter->bUseControllerRotationYaw = false;
+
+		// キャラクタームーブメントの設定をONにする
+		if (OwnerCharacter->GetCharacterMovement())
+		{
+			OwnerCharacter->GetCharacterMovement()->bOrientRotationToMovement = true;
+		}
+	}
 }
 
 
