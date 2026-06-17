@@ -30,4 +30,6 @@ public:
 	//待機関数
 	void Idle(AEnemyManager* EnemyCharacter);
 		
+private:
+	bool IsIdle;
 };

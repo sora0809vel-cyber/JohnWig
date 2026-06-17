@@ -21,7 +21,7 @@ void UEnemyIdle::BeginPlay()
 	Super::BeginPlay();
 
 	// ...
-	
+	IsIdle = true;
 }
 
 
@@ -36,21 +36,32 @@ void UEnemyIdle::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompo
 //待機状態で呼ばれる関数
 void UEnemyIdle::Idle(AEnemyManager* EnemyCharacter)
 {
-	//プレイヤーとの距離が監視範囲より遠かったら
-	if (EnemyCharacter->DistanceToPlayer > EnemyCharacter->MonitoringRange)
-	{
-		EnemyCharacter->GetController()->StopMovement();
 
-		FRotator IdleRotation = { 0,90,0 };
-		//敵の回転を代入
-		EnemyCharacter->SetActorRotation(IdleRotation);
-	}
-	//監視範囲内に入ったら
-	else
-	{
-		//現在のステートをChaseに変更
-		EnemyCharacter->ChangeState(State::Chase);
-	}
+	if (!EnemyCharacter) return;
 
+	IsIdle = true;
+
+	if (IsIdle)
+	{
+		//プレイヤーとの距離が監視範囲より遠かったら
+		if (EnemyCharacter->DistanceToPlayer > EnemyCharacter->MonitoringRange)
+		{
+			if (AController* EnemyController = EnemyCharacter->GetController())
+			{
+				EnemyController->StopMovement();
+			}
+
+			FRotator IdleRotation = { 0,90,0 };
+			//敵の回転を代入
+			EnemyCharacter->SetActorRotation(IdleRotation);
+		}
+		//監視範囲内に入ったら
+		else
+		{
+			//現在のステートをChaseに変更
+			EnemyCharacter->ChangeState(EEnemyState::Chase);
+			IsIdle = false;
+		}
+	}
 }
 

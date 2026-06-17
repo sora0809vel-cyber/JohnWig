@@ -45,13 +45,13 @@ void UEnemyCooldown::Cooldown(AEnemyManager* EnemyCharacter)
 		if (EnemyCharacter->DistanceToPlayer < EnemyCharacter->MonitoringRange)
 		{
 			//状態を待機に変更
-			EnemyCharacter->ChangeState(State::Idle);
+			EnemyCharacter->ChangeState(EEnemyState::Idle);
 		}
 		//監視範囲内かつ攻撃範囲外にいたら追跡
 		else if (EnemyCharacter->DistanceToPlayer < EnemyCharacter->AttackStateRange)
 		{
 			//状態を追跡に変更
-			EnemyCharacter->ChangeState(State::Chase);
+			EnemyCharacter->ChangeState(EEnemyState::Chase);
 		}
 
 	}

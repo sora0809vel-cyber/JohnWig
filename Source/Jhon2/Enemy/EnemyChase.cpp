@@ -4,6 +4,8 @@
 #include "EnemyChase.h"
 #include "EnemyManager.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "AIController.h"
+#include "Navigation/PathFollowingComponent.h"
 
 // Sets default values for this component's properties
 UEnemyChase::UEnemyChase()
@@ -38,13 +40,21 @@ void UEnemyChase::Chase(AEnemyManager* EnemyCharacter,ACharacter* PlayerCharacte
 	//攻撃範囲外にいたら追跡
 	if (EnemyCharacter->DistanceToPlayer > EnemyCharacter->AttackStateRange)
 	{
-		UAIBlueprintHelperLibrary::SimpleMoveToActor(EnemyCharacter->GetController(), PlayerCharacter);
+		AAIController* AIController = Cast<AAIController>(EnemyCharacter->GetController());
+		if (AIController)
+		{
+			//移動中（PathFollowingがアクティブ）ではない時だけ、移動命令を出す
+			if (AIController->GetMoveStatus() != EPathFollowingStatus::Moving)
+			{
+				UAIBlueprintHelperLibrary::SimpleMoveToActor(AIController, PlayerCharacter);
+			}
+		}
 	}
 	//攻撃範囲内なら移動をやめて攻撃状態に移行
 	else
 	{
 		EnemyCharacter->GetController()->StopMovement();
-		EnemyCharacter->ChangeState(State::Attack);
+		EnemyCharacter->ChangeState(EEnemyState::Attack);
 	}
 
 }

@@ -13,11 +13,12 @@ class UEnemyAttack;
 class UEnemyCooldown;
 
 //敵の状態を列挙
-enum class State : uint8 {
-	Idle,		//待機
-	Chase,		//追跡
-	Attack,		//攻撃
-	Cooldown	//後隙
+UENUM(BlueprintType)
+enum class EEnemyState : uint8 {
+	Idle		UMETA(DisplayName = "Idle"),		//待機
+	Chase		UMETA(DisplayName = "Chase"),		//追跡
+	Attack		UMETA(DisplayName = "Attack"),		//攻撃
+	Cooldown	UMETA(DisplayName = "Cooldown")	//後隙
 };
 
 //敵キャラクターの状態の親クラス
@@ -72,7 +73,7 @@ public:
 	void HandleEnemyState();
 
 	//状態を変える関数
-	void ChangeState(State newState);
+	void ChangeState(EEnemyState newState);
 
 	//プレイヤーの攻撃によってHPを減らす関数
 	void EnemyDamaged(float DamageValue);
@@ -139,10 +140,14 @@ public:
 	bool IsAttack = false;
 
 	//参照用変数
-	UEnemyIdle* UEnemyIdle;
-	UEnemyChase* UEnemyChase;
-	UEnemyAttack* UEnemyAttack;
-	UEnemyCooldown* UEnemyCooldown;
+	UEnemyIdle* EnemyIdleState;
+	UEnemyChase* EnemyChaseState;
+	UEnemyAttack* EnemyAttackState;
+	UEnemyCooldown* EnemyCooldownState;
+
+	//ABPから読み取るための変数
+	UPROPERTY(BlueprintReadOnly,Category = "Enemy|Param")
+	EEnemyState ActiveState = EEnemyState::Idle;
 
 private:
 

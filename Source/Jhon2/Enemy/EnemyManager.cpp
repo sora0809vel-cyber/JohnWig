@@ -18,12 +18,18 @@ AEnemyManager::AEnemyManager()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
 }
 
 // Called when the game starts or when spawned
 void AEnemyManager::BeginPlay()
 {
 	Super::BeginPlay();
+
+	EnemyIdleState = FindComponentByClass<class UEnemyIdle>();
+	EnemyChaseState = FindComponentByClass<class UEnemyChase>();
+	EnemyAttackState = FindComponentByClass<class UEnemyAttack>();
+	EnemyCooldownState = FindComponentByClass<class UEnemyCooldown>();
 
 	PlayerActor = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
 	//敵の状態をアイドル状態で初期化
@@ -35,8 +41,6 @@ void AEnemyManager::BeginPlay()
 	BoxHeight = 200.f;	//高さ
 	BoxWidth = 200.f;	//横幅
 
-	//中心点から各壁までの距離
-	BoxExtents = { BoxLength / 2.f, BoxWidth / 2.f, BoxHeight / 2.f };
 
 
 }
@@ -48,6 +52,8 @@ void AEnemyManager::Tick(float DeltaTime)
 
 	//矩形の中心点を定義
 	BoxCenter = GetActorLocation() + (GetActorForwardVector() * (BoxLength / 2.f));
+	//中心点から各壁までの距離
+	BoxExtents = { BoxLength / 2.f, BoxWidth / 2.f, BoxHeight / 2.f };
 
 	//敵とプレイヤーの現在位置を取得して比較
 	if (PlayerActor)
@@ -83,7 +89,7 @@ void AEnemyManager::Tick(float DeltaTime)
 			-1.f,                            // 表示時間（秒）
 			0,                               // 描画の優先順位
 			2.f,                             // 線の太さ
-			FVector(0, 1, 0),                // 円の向き（上を向く＝水平な円）
+			FVector(0, 1, 0),                // 円の向き
 			FVector(1, 0, 0),
 			false
 		);
@@ -100,14 +106,14 @@ void AEnemyManager::Tick(float DeltaTime)
 		DrawDebugCircle(
 			GetWorld(),
 			Center,
-			MonitoringRange,                 // 描画する半径（あなたの設定した攻撃範囲）
+			MonitoringRange,                 // 描画する半径
 			32,                              // 円の滑らかさ（線の数）
 			FColor::Red,                     // 線の色
 			false,                           // 永続的に残すか（毎フレーム呼ぶのでfalse）
 			-1.f,                            // 表示時間（秒）
 			0,                               // 描画の優先順位
 			2.f,                             // 線の太さ
-			FVector(0, 1, 0),                // 円の向き（上を向く＝水平な円）
+			FVector(0, 1, 0),                // 円の向き
 			FVector(1, 0, 0),
 			false
 		);
@@ -149,27 +155,31 @@ void AEnemyManager::HandleEnemyState()
 }
 
 //敵の状態を変える関数
-void AEnemyManager::ChangeState(State newState)
+void AEnemyManager::ChangeState(EEnemyState newState)
 {
 	switch (newState)
 	{
 	default:
 		break;
 		//待機
-	case State::Idle:
+	case EEnemyState::Idle:
 		CurrentState = MakeUnique<IdleState>();
+		ActiveState = EEnemyState::Idle;
 		break;
 		//追跡
-	case State::Chase:
+	case EEnemyState::Chase:
 		CurrentState = MakeUnique<ChaseState>();
+		ActiveState = EEnemyState::Chase;
 		break;
 		//攻撃
-	case State::Attack:
+	case EEnemyState::Attack:
 		CurrentState = MakeUnique<AttackState>();
+		ActiveState = EEnemyState::Attack;
 		break;
 		//後隙
-	case State::Cooldown:
+	case EEnemyState::Cooldown:
 		CurrentState = MakeUnique<CooldownState>();
+		ActiveState = EEnemyState::Cooldown;
 		break;
 	}
 
@@ -184,23 +194,35 @@ void AEnemyManager::EnemyDamaged(float DamageValue)
 //待機状態の処理
 void IdleState::StateProcess(AEnemyManager* EnemyCharacter, ACharacter* PlayerCharacter)
 {
-	EnemyCharacter->UEnemyIdle->Idle(EnemyCharacter);
+	if (EnemyCharacter && EnemyCharacter->EnemyIdleState)
+	{
+		EnemyCharacter->EnemyIdleState->Idle(EnemyCharacter);
+	}
 }
 
 //追跡状態の処理
 void ChaseState::StateProcess(AEnemyManager* EnemyCharacter, ACharacter* PlayerCharacter)
 {
-	EnemyCharacter->UEnemyChase->Chase(EnemyCharacter, PlayerCharacter);
+	if (EnemyCharacter && EnemyCharacter->EnemyChaseState)
+	{
+		EnemyCharacter->EnemyChaseState->Chase(EnemyCharacter, PlayerCharacter);
+	}
 }
 
 //攻撃状態の処理
 void AttackState::StateProcess(AEnemyManager* EnemyCharacter, ACharacter* PlayerCharacter)
 {
-	EnemyCharacter->UEnemyAttack->Attack(EnemyCharacter,PlayerCharacter);
+	if (EnemyCharacter && EnemyCharacter->EnemyAttackState)
+	{
+		EnemyCharacter->EnemyAttackState->Attack(EnemyCharacter, PlayerCharacter);
+	}
 }
 
 //後隙状態の処理
 void CooldownState::StateProcess(AEnemyManager* EnemyCharacter, ACharacter* PlayerCharacter)
 {
-	EnemyCharacter->UEnemyCooldown->Cooldown(EnemyCharacter);
+	if (EnemyCharacter && EnemyCharacter->EnemyCooldownState)
+	{
+		EnemyCharacter->EnemyCooldownState->Cooldown(EnemyCharacter);
+	}
 }
