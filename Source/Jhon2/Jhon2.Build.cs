@@ -16,15 +16,11 @@ public class Jhon2 : ModuleRules
 			"EnhancedInput",
 			"GameplayAbilities",
 			"GameplayTags",
-<<<<<<< HEAD
 			"NavigationSystem",
 			"AIModule",
-			"GameplayTasks" });
-=======
 			"GameplayTasks", 
 			"Niagara"});
 
->>>>>>> f4ecf5bbca3fcc8aee0aa0c885de942a7136d524
         PrivateDependencyModuleNames.AddRange(new string[] {  });
 
 		// Uncomment if you are using Slate UI
