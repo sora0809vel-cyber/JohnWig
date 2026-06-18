@@ -4,13 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
+#include "Perception/AIPerceptionTypes.h"
+#include "EnemyCharacter.h"
 #include "EnemyAIController.generated.h"
-
 //前方宣言
 class UBehaviorTreeComponent;
 class UBlackboardComponent;
 class UBehaviorTree;
-
+class UAIPerceptionComponent;
+class UAISenseConfig_Sight;
+class UEnemyCharacter;
 /**
  * 
  */
@@ -22,8 +25,9 @@ namespace BBKeys
 	const FName MonitoringRange = TEXT("MonitoringRange");
 	const FName WaitTime = TEXT("WaitTime");
 	const FName IsPlayerInSight = TEXT("IsPlayerInSight");
-	const FName IsPlayerCanAttack = TEXT("IsPlayerCanAttack");
+	const FName CanAttack = TEXT("CanAttack");
 }
+
 UCLASS()
 class JHON2_API AEnemyAIController : public AAIController
 {
@@ -34,15 +38,29 @@ public:
 
 	virtual void OnPossess(APawn* InPawn) override;
 
+	virtual void Tick(float DeltaTime) override;
+
+protected:
+	// AIPerceptionコンポーネント
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI|Perception")
+	UAIPerceptionComponent* AIPerceptionComp;
+
+	// 視覚の設定用オブジェクト
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI|Perception")
+	UAISenseConfig_Sight* SightConfig;
+
+	// ターゲットが更新されたときに呼ばれる関数（イベントバインド用）
+	UFUNCTION()
+	void OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI")
+	UBehaviorTree* BehaviorTreeAsset;
+
+	ACharacter* TargetActor;
 private:
 	//コンポーネントの保持
 	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite,Category = "AI|Param",meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBehaviorTreeComponent> BehaviorTreeComponent;
 
-	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite,Category = "AI|Param",meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UBlackboardComponent> BlackboardComponent;
 
-	//エディタ側でアタッチするBehaviorTreeアセット
-	UPROPERTY(EditDefaultsOnly,Category = "AI|Param")
-	TObjectPtr<UBehaviorTree> BehaviorTreeAsset;
 };
