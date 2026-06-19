@@ -29,6 +29,17 @@ public:
 
 protected:
 
+	enum class State : uint8
+	{
+		//通常状態
+		Normal,
+		//構え中
+		Stance,
+	};
+
+	State StanceState = State::Normal;
+
+
 	//居合のタグ
 	FGameplayTag PlayerIaidoTag = FGameplayTag::RequestGameplayTag(FName("Iaido"));
 
@@ -36,9 +47,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Iaido")
 	UAnimMontage* IaidoStanceMontage;
 
+	//アニメーションを停止する関数
+	UFUNCTION()
+	void AnimationStop(FGameplayEventData Payload);
+
+	//納刀解除時に出てくる関数
+	UFUNCTION()
+	void StanceEnd(FGameplayEventData Payload);
+
+
 
 	//終了時の処理
 	UFUNCTION()
-	void IaidoEnd(FGameplayEventData Payload);
+	void IaidoEnd();
 
 };

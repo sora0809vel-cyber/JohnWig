@@ -123,7 +123,6 @@ void APlayer_2::Tick(float DeltaTime)
 	//{
 	//	UE_LOG(LogTemp, Warning, TEXT("Stance"));
 	//}
-
 	//if (CurrentPlayerState == PlayerState::Idle)
 	//{
 	//	UE_LOG(LogTemp, Warning, TEXT("Idle"));
@@ -158,8 +157,8 @@ void APlayer_2::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayer_2::Look);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayer_2::Attack);
 		EnhancedInputComponent->BindAction(DodgeAction, ETriggerEvent::Started, this, &APlayer_2::IsDodge);
-		EnhancedInputComponent->BindAction(DodgeAction, ETriggerEvent::Triggered, this, &APlayer_2::IaidoStance);
-		EnhancedInputComponent->BindAction(DodgeAction, ETriggerEvent::Completed, this, &APlayer_2::cancelStance);
+		EnhancedInputComponent->BindAction(IaidoAction, ETriggerEvent::Started, this, &APlayer_2::IaidoStanceChange);
+		//EnhancedInputComponent->BindAction(DodgeAction, ETriggerEvent::Completed, this, &APlayer_2::cancelStance);
 
 	}
 }
@@ -200,7 +199,7 @@ void APlayer_2::Move(const FInputActionValue& Value) {
 		MovementVector = Value.Get<FVector2D>();
 
 		//納刀中は向きのみ変更
-		if (CurrentPlayerState == PlayerState::Stance)
+		if (CurrentPlayerState == Player2State::Stance)
 		{
 			FVector RotattionOnlyVector = (ForwardDirection * MovementVector.Y) + (RightDirection * MovementVector.X);
 			RotattionOnlyVector.Z = 0.f;
@@ -210,9 +209,9 @@ void APlayer_2::Move(const FInputActionValue& Value) {
 			SetActorRotation(StanceRotation);
 		}
 
-		else if(CurrentPlayerState == PlayerState::Idle || CurrentPlayerState == PlayerState::Move)
+		else if(CurrentPlayerState == Player2State::Idle || CurrentPlayerState == Player2State::Move)
 		{
-			CurrentPlayerState = PlayerState::Move;
+			CurrentPlayerState = Player2State::Move;
 
 			//移動入力を追加
 			AddMovementInput(ForwardDirection, MovementVector.Y);
@@ -227,16 +226,16 @@ void APlayer_2::Move(const FInputActionValue& Value) {
 
 void APlayer_2::MoveEnd(const FInputActionValue& Value)
 {
-	if (CurrentPlayerState != PlayerState::Move)
+	if (CurrentPlayerState != Player2State::Move)
 	{
 
 		return;
 	}
 
-	else if (CurrentPlayerState == PlayerState::Move)
+	else if (CurrentPlayerState == Player2State::Move)
 	{
 
-		CurrentPlayerState = PlayerState::Idle;
+		CurrentPlayerState = Player2State::Idle;
 	}
 
 	
@@ -262,7 +261,7 @@ void APlayer_2::Attack(const FInputActionValue& Value) {
 
 
 	//アビリティシステムコンポーネントが存在せず、プレイヤーのステータスが構えでなかったら発動しない
-	if (!AbilitySystemComponent || (CurrentPlayerState != PlayerState::Stance && CurrentPlayerState != PlayerState::Slash)) return;
+	if (!AbilitySystemComponent || (CurrentPlayerState != Player2State::Stance && CurrentPlayerState != Player2State::Slash && CurrentPlayerState != Player2State::Dodge)) return;
 
 
 	//三段攻撃進行タグを登録
@@ -307,7 +306,7 @@ void APlayer_2::Attack(const FInputActionValue& Value) {
 	}
 
 	//コンボ進行タグがどれでもなく、かつ構え中の場合(最初の入力だけ飯能するようにするため)
-	else if(CurrentPlayerState == PlayerState::Stance)
+	else if(CurrentPlayerState == Player2State::Stance)
 	{
 
 		UE_LOG(LogTemp, Warning, TEXT("111"));
@@ -316,77 +315,97 @@ void APlayer_2::Attack(const FInputActionValue& Value) {
 		AbilitySystemComponent->TryActivateAbilityByClass(AttackSlash1);
 	}
 
+	StanseStart();
+
+
 	//ステータスを攻撃に
-	CurrentPlayerState = PlayerState::Slash;
+	CurrentPlayerState = Player2State::Slash;
 
 }
 
 //回避
 void APlayer_2::IsDodge(const FInputActionValue& Value)
 {
+	//float NextTimer = 1.f;
+
+	////現在の経過時間を取得
+	//float CurrentTime = GetWorld()->GetTimeSeconds();
 
 
-	//現在のstatusが通常状態じゃないならreturn
-	if (CurrentPlayerState == PlayerState::Stance || CurrentPlayerState == PlayerState::Slash) return;
+	//if (CurrentTime < NextTimer) 
+	//{
+	//	return;
+	//}
 
-	//現在のstatusを通常状態へ
-	CurrentPlayerState = PlayerState::Dodge;
+	//現在のステートがスラッシュならreturn
+	if ( CurrentPlayerState == Player2State::Slash ) return;
+	
+	//ステート構えでないなら回避にする
+	if (CurrentPlayerState != Player2State::Stance)
+	{
+		//現在のstatusを通常状態へ
+		CurrentPlayerState = Player2State::Dodge;
+
+	}
+	
 
 	//回避のアビリティを呼び出す
 	AbilitySystemComponent->TryActivateAbilityByClass(DodgeAbility);
 
-
-
-
-	////1フレーム毎に処理を呼び出す
-	//GetWorldTimerManager().SetTimer(DodgeTimer, this, &APlayer_2::IsDodge, DodgeIntervalTime, true);
-
-	//0.5秒語に終了処理を呼ぶ
-	//FTimerHandle EndDodgTiemr;
-	//GetWorldTimerManager().SetTimer(EndDodgTiemr, this, &APlayer_2::EndDodge, DodgeEndTime, false);
+	 
 }
 
 //ボタンを押している間の納刀状態の関数
-void APlayer_2::IaidoStance(const FInputActionValue& Value)
+void APlayer_2::IaidoStanceChange(const FInputActionValue& Value)
 {
+
+
 	//statusが回避状態で、攻撃中でないなら
-	if (CurrentPlayerState == PlayerState::Dodge && CurrentPlayerState != PlayerState::Slash)
+	if (CurrentPlayerState != Player2State::Slash && CurrentPlayerState != Player2State::Dodge)
 	{
 
+		//タグ作成
+		FGameplayTag StanceFreezeTag = FGameplayTag::RequestGameplayTag(FName("StanceAbility.Freeze"));
+
+		//タグを持っていたら
+		if (AbilitySystemComponent->HasMatchingGameplayTag(StanceFreezeTag))
+		{
+
+			//よくわからないデータ
+			FGameplayEventData Payload;
+			Payload.Instigator = this;
+
+			//状態をアイドルに
+			CurrentPlayerState = Player2State::Idle;
+
+
+			//アビりティ再開のタグ
+			FGameplayTag StanceStartTag = FGameplayTag::RequestGameplayTag(FName("StanceAbility.Normal"));
+
+			//アビリティにイベントの通知を送る
+			AbilitySystemComponent->HandleGameplayEvent(StanceStartTag, &Payload);
+
+		}
 
 		//statusを納刀にする
 		//CurrentPlayerState = PlayerState::Stance;
 
 		//アビリティシステムコンポーネントと、納刀の構えのアビリティがあれば
-		if (AbilitySystemComponent && IaidoStanceAbility)
+		else if(!AbilitySystemComponent->HasMatchingGameplayTag(StanceFreezeTag))
 		{
 			//アビリティを呼び出す
 			AbilitySystemComponent->TryActivateAbilityByClass(IaidoStanceAbility);
+
+			//状態をアイドルに
+			CurrentPlayerState = Player2State::Stance;
+
+
 		}
 	}
 }
 
 
-//納刀の終了
-void APlayer_2::cancelStance(const FInputActionValue& Value)
-{
 
-	//statusが回避状態なら
-	if (CurrentPlayerState == PlayerState::Stance && CurrentPlayerState != PlayerState::Slash)
-	{
-
-		FGameplayEventData EventDeta;
-
-		//終了のタグを送る
-		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, FGameplayTag::RequestGameplayTag(FName("Iaido.End")), EventDeta);
-
-		//状態をアイドルに
-		CurrentPlayerState = PlayerState::Idle;
-
-
-	}
-
-}
 
 
 //腑に落ちていないので後から何とかします
@@ -446,24 +465,51 @@ bool APlayer_2::PlayerInput()
 
 }
 
+
+void APlayer_2::StanseStart()
+{
+	//タグ作成
+	FGameplayTag StanceFreezeTag = FGameplayTag::RequestGameplayTag(FName("StanceAbility.Freeze"));
+
+	//タグを持っていたら
+	if (AbilitySystemComponent->HasMatchingGameplayTag(StanceFreezeTag))
+	{
+		//よくわからないデータ
+		FGameplayEventData Payload;
+		Payload.Instigator = this;
+
+		//状態をアイドルに
+		//CurrentPlayerState = PlayerState::Idle;
+
+
+		//アビりティ再開のタグ
+		FGameplayTag StanceStartTag = FGameplayTag::RequestGameplayTag(FName("StanceAbility.Normal"));
+
+		//アビリティにイベントの通知を送る
+		AbilitySystemComponent->HandleGameplayEvent(StanceStartTag, &Payload);
+
+	}
+
+}
+
 void APlayer_2::SetStateStance()
 {
-	CurrentPlayerState = PlayerState::Stance;
+	CurrentPlayerState = Player2State::Stance;
 }
 
 
 //ステータスをアイドルにする(攻撃アニメーション終了時に呼び出される(GA_SlashAttack.cpp))
 void APlayer_2::SetStateIdle()
 {
-	CurrentPlayerState = PlayerState::Idle;
+	CurrentPlayerState = Player2State::Idle;
 }
 
 
-//ステータスを変える関数
-void APlayer_2::ChangeState(PlayerState State)
-{
-	CurrentPlayerState = State;
-}
+////ステータスを変える関数
+//void APlayer_2::ChangeState(PlayerState State)
+//{
+//	CurrentPlayerState = State;
+//}
 
 
 //移動可能かどうか

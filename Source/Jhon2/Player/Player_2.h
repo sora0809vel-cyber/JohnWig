@@ -10,12 +10,24 @@
 #include "Animation/AnimInstance.h"
 #include "Player_2.generated.h"
 
+
 //クラスの前方宣言
 class USpringArmComponent;
 class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 class UAbilitySystemComponent;
+
+UENUM(BlueprintType)
+enum class Player2State : uint8
+{
+	Idle,
+	Move,
+	Stance,
+	Slash,
+	Dodge
+};
+
 
 
 UCLASS()
@@ -49,24 +61,10 @@ public:
 
 protected:
 
-	//プレイヤーstatus列挙型定義
-	enum class PlayerState : uint8
-	{
-		//通常
-		Idle,
-		//回避
-		Dodge,
-		//納刀
-		Stance,
-		//攻撃中
-		Slash,
-		//移動中
-		Move,
-	};
 
 	//プレイヤーstatus宣言
 	//UPROPERTY(BluprintiReadOnly, Category = "PlayerState")
-	PlayerState CurrentPlayerState = PlayerState::Idle;
+	Player2State CurrentPlayerState = Player2State::Idle;
 
 
 	// Called when the game starts or when spawned
@@ -85,6 +83,12 @@ protected:
 	class UInputAction* AttackAction;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player_Input")
 	class UInputAction* DodgeAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Player_Input")
+	class UInputAction* IaidoAction;
+
+
+
+
 
 	//カメラをプレイヤーの後ろに固定するスプリングアーム
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -155,10 +159,8 @@ public:
 
 	//回避を始める瞬間を通知する処理
 	void IsDodge(const FInputActionValue& Value);
-	//回避から抜刀の構え
-	void IaidoStance(const FInputActionValue& Value);
-	//構え解除
-	void cancelStance(const FInputActionValue& Value);
+	//回避から抜刀の構えと解除
+	void IaidoStanceChange(const FInputActionValue& Value);
 	//抜刀
 	//void DrawnSword(const FInputActionValue& Value);
 
@@ -175,13 +177,18 @@ public:
 	//ステータスを納刀にする
 	void SetStateStance();
 
-	//ステータスを変更する
-	void ChangeState(PlayerState NewState);
+	////ステータスを変更する
+	//void ChangeState(PlayerState NewState);
 
+	//
+	void StanseStart();
 
 	//stickやWASDの入力があるかを判断する関数
 	UFUNCTION(BlueprintCallable, Category = "Inputbool")
 	bool PlayerInput();
+
+	//ステートを渡す
+	Player2State GetCurrentState() const { return CurrentPlayerState; }
 
 	//UPROPERTY(EditAnywhere)
 	FVector2D MovementVector;

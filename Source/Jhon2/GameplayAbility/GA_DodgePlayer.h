@@ -20,6 +20,8 @@ class JHON2_API UGA_DodgePlayer : public UGameplayAbility
 	//dodgeタイマー
 	FTimerHandle DodgeTimer;
 
+	bool DodgePlay;
+
 public:
 	
 	UGA_DodgePlayer();
@@ -53,6 +55,10 @@ protected:
 
 	//UPROPERTY(EditAnywhere,BlueprintReadWrite)
 	//float DodgeDistance;
+
+
+
+	bool DodgeMontagePlay();
 
 	//終了時の処理
 	void DodgeMontageEnd();

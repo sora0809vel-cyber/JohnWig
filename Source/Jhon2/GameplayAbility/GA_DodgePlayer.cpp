@@ -4,6 +4,8 @@
 #include "GA_DodgePlayer.h"
 //#include "WorldTimeSetting.h"
 #include "TimerManager.h"
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
+#include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
 #include "Jhon2/Player/Player_2.h"
 #include "EnhancedInputComponent.h"
@@ -24,7 +26,31 @@ void UGA_DodgePlayer::ActivateAbility(
 	const FGameplayEventData* DodgeTriggerEvent
 )
 {
+	
 	Super::ActivateAbility(Dodging, DodgeActorInfo, ActivationInfo, DodgeTriggerEvent);
+
+	//プレイヤーの情報を取得
+	APlayer_2* Player2 = Cast<APlayer_2>(GetAvatarActorFromActorInfo());
+
+	//プレイヤーのstatusが、構えていないなら
+	if (Player2 && Player2->GetCurrentState() != Player2State::Stance)
+	{
+		//モンタージュがあるか確認
+		if (DodgeMontage)
+		{
+			//再生のタスク
+			UAbilityTask_PlayMontageAndWait* DodgeMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this,
+				NAME_None, DodgeMontage);
+
+			//タスクがあるなら
+			if (DodgeMontageTask)
+			{
+				//アニメーション再生
+				DodgeMontageTask->ReadyForActivation();
+			}
+		}
+	}
+
 	DodgeStart();
 }
 
@@ -33,7 +59,7 @@ void UGA_DodgePlayer::ActivateAbility(
 void UGA_DodgePlayer::DodgeStart()
 {
 	//せかいからタイマーをもらう
-	GetWorld()->GetTimerManager().SetTimer(DodgeTimer, this, &UGA_DodgePlayer::IsDodge, 0.1f, true);
+	GetWorld()->GetTimerManager().SetTimer(DodgeTimer, this, &UGA_DodgePlayer::IsDodge, 0.001f, true);
 
 	//数秒後終了処理
 	FTimerHandle EndDodgTimer;
@@ -58,11 +84,19 @@ void UGA_DodgePlayer::IsDodge()
 		//プレイヤーに入力があるかどうか
 		if (Player->PlayerInput())
 		{
-			DodgeDistance = 4000.f;
+			DodgeDistance = 150.f;
 		}
 		if (!Player->PlayerInput())
 		{
-			DodgeDistance = 0.f;
+			DodgeDistance = -100.f;
+		}
+
+		//プレイヤーの情報を取得
+		APlayer_2* Player2 = Cast<APlayer_2>(GetAvatarActorFromActorInfo());
+
+		if (Player2 && Player2->GetCurrentState() == Player2State::Stance)
+		{
+			DodgeDistance /= 2;
 		}
 
 		FVector DodgeLocation = Player->GetActorLocation() + (DodgeRotate * DodgeDistance * GetWorld()->DeltaTimeSeconds);
@@ -86,15 +120,41 @@ void UGA_DodgePlayer::DodgeEnd()
 	//プレイヤーのクラスのアクターを取得出来たら
 	if (APlayer_2* Player2 = Cast<APlayer_2>(GetAvatarActorFromActorInfo()))
 	{
-
-		//ステータスをアイドルにする関数を呼び出す
-		Player2->SetStateStance();
+		if (Player2 && Player2->GetCurrentState() != Player2State::Stance)
+		{
+			//ステータスをアイドルにする関数を呼び出す
+			Player2->SetStateIdle();
+		}
 	}
 
 
 	GetWorld()->GetTimerManager().ClearTimer(DodgeTimer);
+
+	DodgeMontageEnd();
+
 }
 
+bool UGA_DodgePlayer::DodgeMontagePlay()
+{
+	//構え中の回避にの際に呼ばれるタスク
+	UAbilityTask_WaitGameplayEvent* NotPlayMontageTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+		this, FGameplayTag::RequestGameplayTag(TEXT("DodgeAbility.NotPlayMontage")));
+
+	//タグがあるなら
+	if (NotPlayMontageTask)
+	{
+		//トゥルー
+		return true;
+	}
+	//あるなら
+	else
+	{
+		//ファルス返す
+		return false;
+	}
+
+
+}
 
 
 //アニメーション終了

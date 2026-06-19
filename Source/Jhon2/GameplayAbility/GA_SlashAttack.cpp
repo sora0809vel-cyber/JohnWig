@@ -109,7 +109,6 @@ void UGA_SlashAttack::PlayIaiStage(int32 StageIndex)
 void UGA_SlashAttack::FreezeAtLastFrame(FGameplayEventData EventData)
 {
 
-
 	//キャラクターと
 	if (ACharacter* MyChar = Cast<ACharacter>(GetAvatarActorFromActorInfo())) {
 		//アニメーションインスタンスを取得
@@ -216,7 +215,7 @@ void UGA_SlashAttack::SlashMontageCancel()
 	SlashAbilityEnd();
 }
 
-
+ 
 //アニメーション終了時に呼ばれる関数
 void UGA_SlashAttack::SlashMontageEnd()
 {
