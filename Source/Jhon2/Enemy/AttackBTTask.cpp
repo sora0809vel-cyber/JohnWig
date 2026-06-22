@@ -7,8 +7,9 @@
 #include "EnemyCharacter.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
-UAttackBTTask::UAttackBTTask() 
+UAttackBTTask::UAttackBTTask()
 {
 	NodeName = TEXT("C++ Attack Task");
 
@@ -19,117 +20,121 @@ UAttackBTTask::UAttackBTTask()
 
 EBTNodeResult::Type UAttackBTTask::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-    AAIController* AIController = OwnerComp.GetAIOwner();
-    if (!AIController) return EBTNodeResult::Failed;
+	AAIController* AIController = OwnerComp.GetAIOwner();
+	if (!AIController) return EBTNodeResult::Failed;
 
-    AEnemyCharacter* EnemyChar = Cast<AEnemyCharacter>(AIController->GetPawn());
-    if (!EnemyChar) return EBTNodeResult::Failed;
+	AEnemyCharacter* EnemyChar = Cast<AEnemyCharacter>(AIController->GetPawn());
+	if (!EnemyChar) return EBTNodeResult::Failed;
 
-    //攻撃中は注視を解除
-    AIController->ClearFocus(EAIFocusPriority::Gameplay);
+	//攻撃中は注視を解除
+	AIController->ClearFocus(EAIFocusPriority::Gameplay);
 
-    //ABPでの状態確認用のStateを設定
-    EnemyChar->CurrentState = EEnemyState::Attack;
+	//ABPでの状態確認用のStateを設定
+	EnemyChar->CurrentState = EEnemyState::Attack;
 
-    //矩形の中心点を計算
-    FVector EnemyLocation = EnemyChar->GetActorLocation();
-    FVector EnemyForward = EnemyChar->GetActorForwardVector();
 
-    float ForwardOffset = EnemyChar->BoxOffSet;    //敵のどれくらい前に出すか
-    FVector BoxCenter = EnemyLocation + (EnemyForward * ForwardOffset);
+	// アニメーションを再生し、長さを取得
+	float MontageLength = EnemyChar->PlayAttackAnimation();
 
-    //矩形のサイズを設定
-    //FVector(奥行の半分、幅の半分、高さの半分)
-    FVector BoxHalfSize = FVector(EnemyChar->BoxLength, EnemyChar->BoxWidth, EnemyChar->BoxHeight);
+	if (MontageLength <= 0.0f) return EBTNodeResult::Failed;
 
-    //判定にひっかけるアクターの種類を指定
-    TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
-    ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+	float DelayTime = 1.2f;
+	FTimerHandle AttackDelayHandle;
 
-    //無視するアクター
-    TArray<AActor*> ActorsToIgnore;
-    ActorsToIgnore.Add(EnemyChar);
+	TWeakObjectPtr<AEnemyCharacter> WeakEnemyChar(EnemyChar);
 
-    //判定内にいるアクターを格納する配列
-    TArray<AActor*> OverlappedActors;
+	FTimerDelegate AttackDelegate = FTimerDelegate::CreateLambda([WeakEnemyChar]() {
+		if (!WeakEnemyChar.IsValid()) return;
+		AEnemyCharacter* Enemy = WeakEnemyChar.Get();
+		UWorld* World = Enemy->GetWorld();
+		if (!World) return;
 
-    //矩形判定を実行
-    bool bHit = UKismetSystemLibrary::BoxOverlapActors(
-        EnemyChar->GetWorld(),
-        BoxCenter,
-        BoxHalfSize,
-        ObjectTypes,
-        ACharacter::StaticClass(),
-        ActorsToIgnore,
-        OverlappedActors
-    );
+		// 矩形の中心点を計算
+		FVector EnemyLocation = Enemy->GetActorLocation();
+		FVector EnemyForward = Enemy->GetActorForwardVector();
+		float ForwardOffset = Enemy->BoxOffSet;
+		FVector BoxCenter = EnemyLocation + (EnemyForward * ForwardOffset);
 
-    //デバッグ用の矩形を表示
-    UKismetSystemLibrary::DrawDebugBox(
-        EnemyChar->GetWorld(),
-        BoxCenter,
-        BoxHalfSize,
-        FLinearColor::Red,
-        EnemyChar->GetActorRotation(),
-        1.5f, // 0.5秒間表示
-        1.0f
-    );
+		// 矩形のサイズを設定
+		FVector BoxHalfSize = FVector(Enemy->BoxLength, Enemy->BoxWidth, Enemy->BoxHeight);
 
-    //引っかかったアクターへの処理
-    if (bHit)
-    {
-        for (AActor* HitActor : OverlappedActors)
-        {
-            //プレイヤーかどうか確認
-            ACharacter* PlayerChar = Cast<ACharacter>(HitActor);
-            if (PlayerChar && PlayerChar->IsPlayerControlled())
-            {
-                //プレイヤーへの処理を記述
-            }
-        }
-    }
+		// 判定にひっかけるアクターの種類を指定
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+		ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
 
-    // アニメーションを再生し、長さを取得
-    float MontageLength = EnemyChar->PlayAttackAnimation();
+		// 無視するアクター
+		TArray<AActor*> ActorsToIgnore;
+		ActorsToIgnore.Add(Enemy);
 
-    if (MontageLength > 0.0f)
-    {
-        // アニメーションの長さが終了したらタスクを完了させるタイマーを設定
-        FTimerHandle TimerHandle;
-        FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &UAttackBTTask::OnAttackAnimationFinished, TWeakObjectPtr<UBehaviorTreeComponent>(&OwnerComp));
+		// 判定内にいるアクターを格納する配列
+		TArray<AActor*> OverlappedActors;
 
-        // 敵キャラクターの世界のタイマーマネージャーを利用
-        EnemyChar->GetWorldTimerManager().SetTimer(TimerHandle, TimerDelegate, MontageLength, false);
+		// 矩形判定を実行
+		bool bHit = UKismetSystemLibrary::BoxOverlapActors(
+			World, BoxCenter, BoxHalfSize, ObjectTypes,
+			ACharacter::StaticClass(), ActorsToIgnore, OverlappedActors
+		);
 
-        //タスクが実行中であることを返す
-        return EBTNodeResult::InProgress;
-    }
+		// デバッグ用の矩形を表示 (1.5秒間)
+		UKismetSystemLibrary::DrawDebugBox(
+			World, BoxCenter, BoxHalfSize, FLinearColor::Red,
+			Enemy->GetActorRotation(), 1.5f, 1.0f
+		);
 
-    // アニメーションの再生に失敗した場合は即座にFailedで抜ける
-    return EBTNodeResult::Failed;
+		// 引っかかったアクターへの処理
+		if (bHit)
+		{
+			for (AActor* HitActor : OverlappedActors)
+			{
+				ACharacter* PlayerChar = Cast<ACharacter>(HitActor);
+				if (PlayerChar && PlayerChar->IsPlayerControlled())
+				{
+					UGameplayStatics::ApplyDamage(
+						HitActor, 40.f,
+						Enemy->GetController(), Enemy,
+						UDamageType::StaticClass()
+					);
+				}
+			}
+		}
+		});
+
+	//タイマーstart
+	EnemyChar->GetWorldTimerManager().SetTimer(AttackDelayHandle, AttackDelegate, DelayTime, false);
+
+	// アニメーションの長さが終了したらタスクを完了させるタイマーを設定
+	FTimerHandle TimerHandle;
+	FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &UAttackBTTask::OnAttackAnimationFinished, TWeakObjectPtr<UBehaviorTreeComponent>(&OwnerComp));
+
+	// 敵キャラクターの世界のタイマーマネージャーを利用
+	EnemyChar->GetWorldTimerManager().SetTimer(TimerHandle, TimerDelegate, MontageLength, false);
+
+	//タスクが実行中であることを返す
+	return EBTNodeResult::InProgress;
+
 }
 
 void UAttackBTTask::OnAttackAnimationFinished(TWeakObjectPtr<UBehaviorTreeComponent> OwnerCompPtr)
 {
-    if (OwnerCompPtr.IsValid())
-    {
-        UBehaviorTreeComponent* BTComp = OwnerCompPtr.Get();
-        AAIController* AIController = BTComp->GetAIOwner();
+	if (OwnerCompPtr.IsValid())
+	{
+		UBehaviorTreeComponent* BTComp = OwnerCompPtr.Get();
+		AAIController* AIController = BTComp->GetAIOwner();
 
-        if (AIController)
-        {
-            UBlackboardComponent* BBComp = BTComp->GetBlackboardComponent();
-            if (BBComp)
-            {
-                AActor* PlayerActor = Cast<AActor>(BBComp->GetValueAsObject(FName("PlayerActor")));
-                if (PlayerActor)
-                {
-                    AIController->SetFocus(PlayerActor);
-                }
-            }
-        }
+		if (AIController)
+		{
+			UBlackboardComponent* BBComp = BTComp->GetBlackboardComponent();
+			if (BBComp)
+			{
+				AActor* PlayerActor = Cast<AActor>(BBComp->GetValueAsObject(FName("PlayerActor")));
+				if (PlayerActor)
+				{
+					AIController->SetFocus(PlayerActor);
+				}
+			}
+		}
 
-        //Behavior Treeに終了したと通知する
-        FinishLatentTask(*OwnerCompPtr.Get(), EBTNodeResult::Succeeded);
-    }
+		//Behavior Treeに終了したと通知する
+		FinishLatentTask(*OwnerCompPtr.Get(), EBTNodeResult::Succeeded);
+	}
 }

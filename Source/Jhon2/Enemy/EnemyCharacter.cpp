@@ -57,6 +57,9 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damage
 {
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
+
+	UE_LOG(LogTemp, Warning, TEXT("Hit Enemy"));
+
 	//体力を減らす
 	EnemyHP -= ActualDamage;
 
@@ -78,6 +81,13 @@ float AEnemyCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damage
 
 	//もし被弾アニメーション（モンタージュ）があればここで再生する
 	// PlayAnimMontage(HitMontage);
+
+	//体力が0なら
+	if (EnemyHP <= 0)
+	{
+		//死
+		Destroy();
+	}
 
 	return EnemyHP;
 }

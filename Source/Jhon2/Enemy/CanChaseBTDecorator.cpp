@@ -3,6 +3,7 @@
 
 #include "CanChaseBTDecorator.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "AIController.h"
 
 UCanChaseBTDecorator::UCanChaseBTDecorator()
 {
@@ -17,9 +18,18 @@ bool UCanChaseBTDecorator::CalculateRawConditionValue(UBehaviorTreeComponent& Ow
 	const UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
 	if (!BlackboardComp) return false;
 
-	//PlayerActorã‚­ãƒ¼ã‹ã‚‰ã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã‚’å–å¾—
+	//PlayerActorƒL[‚©‚çƒIƒuƒWƒFƒNƒg‚ðŽæ“¾
 	UObject* TargetObject = BlackboardComp->GetValueAsObject(PlayerActor.SelectedKeyName);
 	AActor* TargetActor = Cast<AActor>(TargetObject);
+	if (!TargetActor) return false;
 
-	return (TargetActor != nullptr);
+	AAIController* AIController = OwnerComp.GetAIOwner();
+	if (!AIController) return false;
+
+	APawn* EnemyPawn = AIController->GetPawn();
+	if (!EnemyPawn) return false;
+
+	float Distance = FVector::Dist(EnemyPawn->GetActorLocation(), TargetActor->GetActorLocation());
+
+	return (Distance <= ChaseRange);
 }

@@ -41,7 +41,7 @@ public:
 	virtual float TakeDamage(float DamageAmount,FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 public:
 	//敵のHP
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI|Param")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Param")
 	float EnemyHP;
 
 	//敵の攻撃範囲
