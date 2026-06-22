@@ -15,3 +15,10 @@ class JHON2_API UEnemyData : public UStruct
 	GENERATED_BODY()
 	
 };
+
+USTRUCT()
+struct FEnemyData : public 
+{
+	GENERATED_BODY()
+
+};
